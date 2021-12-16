@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const exphbs = require('express-handlebars');
 require('dotenv').config();
-const stripe = require('stripe');
+const Stripe = require('stripe');
 
 var app = express();
 
@@ -17,6 +17,12 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.json({}));
 
 /**
+ * Stripe Client
+ */
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+
+/**
  * Home route
  */
 app.get('/', function(req, res) {
@@ -26,7 +32,7 @@ app.get('/', function(req, res) {
 /**
  * Checkout route
  */
-app.get('/checkout', function(req, res) {
+app.get('/checkout', async function(req, res) {
   // Just hardcoding amounts here to avoid using a database
   const item = req.query.item;
   let title, amount, error;
@@ -34,26 +40,36 @@ app.get('/checkout', function(req, res) {
   switch (item) {
     case '1':
       title = "The Art of Doing Science and Engineering"
-      amount = 2300      
+      amount = 2300
       break;
     case '2':
       title = "The Making of Prince of Persia: Journals 1985-1993"
       amount = 2500
-      break;     
+      break;
     case '3':
       title = "Working in Public: The Making and Maintenance of Open Source"
-      amount = 2800  
-      break;     
+      amount = 2800
+      break;
     default:
       // Included in layout view, feel free to assign error
-      error = "No item selected"      
+      error = "No item selected"
       break;
   }
+
+
+  const intent = await stripe.paymentIntents.create({
+    amount: amount,
+    currency: 'usd',
+    automatic_payment_methods: {enabled: true},
+  });
 
   res.render('checkout', {
     title: title,
     amount: amount,
-    error: error
+    error: error,
+    client_secret:intent.client_secret,
+    stripe_pk: process.env.STRIPE_PUBLISHABLE_KEY
+
   });
 });
 
@@ -61,6 +77,8 @@ app.get('/checkout', function(req, res) {
  * Success route
  */
 app.get('/success', function(req, res) {
+
+  // const payment_intent_id = req.query.payment_intent;
   res.render('success');
 });
 
